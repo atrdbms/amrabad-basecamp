@@ -35,3 +35,12 @@ table.register td:nth-last-child(-n+2) { font-weight: 700; background: #eef4ea; 
 @media (max-width: 1300px) { .fb-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .fb-fields { flex-basis: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); } .fb-extra .field { flex: 1 1 140px; } .fb-extra input[type=search], .fb-extra input[type=date] { width: 100%; } }
 #map { height: max(480px, calc(100vh - 360px)); }
+/* selected basecamp + radius */
+.camp-pin.sel div { width: 40px; height: 40px; border: 3px solid #ffd400; box-shadow: 0 0 0 3px #0006, 0 3px 10px #000a; }
+.camp-pin.sel span { font-size: 19px; }
+.camp-pin.sel em { left: 46px; top: 8px; font-size: 13px; color: #ffd400; }
+.camp-pin .halo { position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; background: #ffd40088; animation: halo 1.6s ease-out infinite; }
+@keyframes halo { from { transform: scale(.8); opacity: .9; } to { transform: scale(2.4); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .camp-pin .halo { animation: none; opacity: .4; } }
+.rad-lbl span { position: absolute; transform: translate(-50%, -130%); white-space: nowrap; background: #1b2f17e6; color: #ffd400; font-weight: 700; font-size: 12px; padding: 3px 9px; border-radius: 999px; }
+.map-toggle .btn.sm { margin-top: 6px; width: 100%; }

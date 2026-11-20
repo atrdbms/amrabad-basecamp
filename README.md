@@ -28,6 +28,8 @@ the site shows a warning listing any name it cannot match.
 - **GIS Map** – Google Satellite (with labels) basemap plus Google Satellite, Terrain, Esri imagery and OSM.
   Green basecamp pins = reported in the period, red = no report. Orange dots = where each photo was taken
   (red ring = more than 0.5 km from the basecamp). Click for details and photos.
+- **Selecting a basecamp** (Basecamp name filter, clicking its pin, or the 🛰 Map button on its card) highlights it and draws a
+  10 km radius circle around it, ringing the other basecamps inside the circle (radius set in `config.js` → `selectRadiusKm`).
 - **Basecamps** – one card per basecamp with latest photo, reports, days reported, compliance and last report.
 - **Reports** – Abstract reports (basecamp-wise status, division / range / section / beat-wise abstracts,
   month-wise, employee-wise, non-reporting basecamps, photos taken away from camp, full report list),

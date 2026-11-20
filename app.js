@@ -9,6 +9,7 @@
   const LOC = ["division", "range", "section", "beat", "camp"];
   const TIME = ["year", "month"];
   const ALERT_KM = CFG.distanceAlertKm ?? 0.5;
+  const RADIUS_KM = CFG.selectRadiusKm ?? 10;
 
   const state = {
     camps: [], reports: [], rHeaders: [], col: {}, ccol: {},
@@ -365,7 +366,7 @@
   }
 
   // ---------- maps ----------
-  let map, campLayer, repLayer, mini, miniLayer;
+  let map, campLayer, repLayer, selLayer, mini, miniLayer, miniSel;
   function baseLayers() {
     return {
       "Google Satellite (labels)": L.tileLayer("https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", { subdomains: "0123", maxZoom: 21, attribution: "Imagery © Google" }),
@@ -384,20 +385,25 @@
     repLayer = L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 30, disableClusteringAtZoom: 16 }) : L.layerGroup();
     map.addLayer(repLayer);
     campLayer = L.layerGroup().addTo(map);
+    selLayer = L.layerGroup().addTo(map);
     const Ctl = L.Control.extend({ onAdd() {
       const d = L.DomUtil.create("div", "leaflet-bar map-toggle");
-      d.innerHTML = `<b>Map options</b><label><input type="checkbox" id="repToggle" checked> Report photo locations</label><label><input type="checkbox" id="lblToggle"> Basecamp names</label>`;
+      d.innerHTML = `<b>Map options</b><label><input type="checkbox" id="repToggle" checked> Report photo locations</label><label><input type="checkbox" id="lblToggle"> Basecamp names</label><label><input type="checkbox" id="radToggle" checked> ${RADIUS_KM} km circle on selected basecamp</label><button class="btn sm" id="selClear" hidden>✖ Clear selection</button>`;
       L.DomEvent.disableClickPropagation(d); return d;
     } });
     map.addControl(new Ctl({ position: "topleft" }));
     $("#repToggle").addEventListener("change", (e) => { state.showReports = e.target.checked; renderMaps(false); });
     $("#lblToggle").addEventListener("change", (e) => { state.labels = e.target.checked; renderMaps(false); });
+    $("#radToggle").addEventListener("change", (e) => { state.noRadius = !e.target.checked; drawSelection(false); });
+    $("#selClear").addEventListener("click", () => { state.selKey = null; renderMaps(false); });
     mini = L.map("miniMap", { scrollWheelZoom: false }).setView(CFG.mapCenter, CFG.mapZoom);
     baseLayers()["Google Satellite (labels)"].addTo(mini);
     miniLayer = L.layerGroup().addTo(mini);
+    miniSel = L.layerGroup().addTo(mini);
   }
   function campIcon(c) {
     const s = st(c), cls = s.n ? "ok" : "no";
+    if (c.key === selectedKey()) return L.divIcon({ className: "camp-pin sel " + cls, html: `<b class="halo"></b><div><span>⛺</span></div><em>${esc(c.camp)}</em>`, iconSize: [40, 50], iconAnchor: [20, 48], popupAnchor: [0, -44] });
     return L.divIcon({ className: "camp-pin " + cls, html: `<div><span>⛺</span></div>${state.labels ? `<em>${esc(c.camp)}</em>` : ""}`, iconSize: [30, 38], iconAnchor: [15, 36], popupAnchor: [0, -32] });
   }
   function campPopup(c) {
@@ -413,6 +419,7 @@
         <tr><th>Reports</th><td>${s.n}</td></tr><tr><th>Days reported</th><td>${s.days} of ${state.period.days.length} (${s.comp}%)</td></tr>
         <tr><th>Last report</th><td>${last ? esc(fmtDay(last.day) + " " + last.time + " · " + last.employee) : "–"}</td></tr>
       </table>
+      ${c.key === selectedKey() && state.nearList && !state.noRadius ? `<div class="pcap"><b>Basecamps within ${RADIUS_KM} km:</b> ${state.nearList.length ? state.nearList.map(([n, d]) => `${esc(n)} (${d.toFixed(1)} km)`).join(", ") : "none"}</div>` : ""}
       <div class="pop-act"><button class="btn sm" data-campf="${esc(c.camp)}">Show only this basecamp</button></div></div>`;
   }
   function repPopup(r) {
@@ -430,7 +437,8 @@
     campLayer.clearLayers(); repLayer.clearLayers(); miniLayer.clearLayers();
     const pts = [];
     state.fCamps.filter((c) => c.hasCoord).forEach((c) => {
-      const m = L.marker([c.lat, c.lon], { icon: campIcon(c), zIndexOffset: 500 }).bindPopup(() => campPopup(c), { maxWidth: 380, minWidth: 300 });
+      const m = L.marker([c.lat, c.lon], { icon: campIcon(c), zIndexOffset: c.key === selectedKey() ? 2000 : 500 }).bindPopup(() => campPopup(c), { maxWidth: 380, minWidth: 300 });
+      m.on("click", () => { if (state.selKey !== c.key) { state.selKey = c.key; renderMaps(false); drawSelection(false); } });
       m.bindTooltip(esc(c.camp) + ` · ${st(c).n} reports`);
       campLayer.addLayer(m); pts.push([c.lat, c.lon]);
       miniLayer.addLayer(L.circleMarker([c.lat, c.lon], { radius: 7, weight: 2, color: "#fff", fillColor: st(c).n ? "#2e7d32" : "#c62828", fillOpacity: 0.95 }).bindTooltip(esc(c.camp)));
@@ -449,7 +457,43 @@
       ${noCoord ? `<div class="warn">${noCoord} basecamp(s) without coordinates</div>` : ""}
       <div class="muted small">Period: ${esc(periodText())}</div></div>`;
     state.lastBounds = pts.length ? L.latLngBounds(pts) : null;
+    const sel = selectedCamp();
+    if (sel && fit) state.lastBounds = L.latLng(sel.lat, sel.lon).toBounds(RADIUS_KM * 2000 * 1.05);
+    drawSelection(false);
     if (fit && state.lastBounds) { state.fitMain = true; state.fitMini = true; fitVisible(); }
+  }
+  // Selected basecamp: chosen in the Basecamp name filter, or by clicking its pin / Map button.
+  function selectedKey() {
+    if (state.filters.camp) return norm(state.filters.camp);
+    return state.fCamps.some((c) => c.key === state.selKey) ? state.selKey : null;
+  }
+  function selectedCamp() { const k = selectedKey(); const c = k && state.camps.find((x) => x.key === k); return c && c.hasCoord ? c : null; }
+  function drawSelection(zoom) {
+    if (!map) return;
+    selLayer.clearLayers(); miniSel.clearLayers();
+    const c = selectedCamp();
+    $("#selClear").hidden = !(c && !state.filters.camp);
+    if (!c) return;
+    const r = RADIUS_KM * 1000;
+    if (!state.noRadius) {
+      const style = { radius: r, color: "#ffd400", weight: 3, dashArray: "8 6", fillColor: "#ffd400", fillOpacity: 0.08, interactive: false };
+      selLayer.addLayer(L.circle([c.lat, c.lon], style));
+      miniSel.addLayer(L.circle([c.lat, c.lon], style));
+      // neighbouring basecamps inside the circle (shown even when the filter hides them)
+      const shown = new Set(state.fCamps.map((x) => x.key));
+      const near = state.camps.filter((x) => x.key !== c.key && x.hasCoord && km(c.lat, c.lon, x.lat, x.lon) <= RADIUS_KM);
+      const edge = L.latLng(c.lat + RADIUS_KM / 111.32, c.lon);
+      selLayer.addLayer(L.marker(edge, { interactive: false, icon: L.divIcon({ className: "rad-lbl", html: `<span>${RADIUS_KM} km radius around ${esc(c.camp)} · ${near.length} other basecamp(s) inside</span>`, iconSize: [0, 0] }) }));
+      near.forEach((x) => {
+        const d = km(c.lat, c.lon, x.lat, x.lon).toFixed(1);
+        selLayer.addLayer(shown.has(x.key)
+          ? L.circleMarker([x.lat, x.lon], { radius: 18, color: "#ffd400", weight: 2, fill: false, interactive: false })
+          : L.circleMarker([x.lat, x.lon], { radius: 7, color: "#ffd400", weight: 2, fillColor: "#fff", fillOpacity: 0.9 }).bindTooltip(`${esc(x.camp)} · ${d} km`));
+      });
+      state.nearList = near.map((x) => [x.camp, km(c.lat, c.lon, x.lat, x.lon)]).sort((p, q) => p[1] - q[1]);
+    }
+    miniSel.addLayer(L.circleMarker([c.lat, c.lon], { radius: 11, color: "#ffd400", weight: 4, fill: false, interactive: false }));
+    if (zoom) map.fitBounds(L.latLng(c.lat, c.lon).toBounds(r * 2.1));
   }
   function fitVisible() {
     if (!state.lastBounds) return;
@@ -623,7 +667,8 @@
   function locateCamp(c) {
     if (!c || !c.hasCoord || !map) return;
     switchView("map");
-    setTimeout(() => { map.setView([c.lat, c.lon], 15); L.popup({ maxWidth: 380, offset: [0, -30] }).setLatLng([c.lat, c.lon]).setContent(campPopup(c)).openOn(map); }, 120);
+    state.selKey = c.key; renderMaps(false);
+    setTimeout(() => { drawSelection(true); L.popup({ maxWidth: 380, offset: [0, -40] }).setLatLng([c.lat, c.lon]).setContent(campPopup(c)).openOn(map); }, 150);
   }
   function openLightbox(img) {
     const lb = $("#lightbox"), li = lb.querySelector("img");

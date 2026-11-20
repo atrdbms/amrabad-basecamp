@@ -23,6 +23,11 @@ window.BC_CONFIG = {
   mapCenter: [16.35, 78.85],
   mapZoom: 10,
 
+  // Radius (km) drawn around a selected basecamp on the map, and the distance after which
+  // a report photo is flagged as taken away from its basecamp.
+  selectRadiusKm: 10,
+  distanceAlertKm: 0.5,
+
   // Accepted header names for each field (case, spaces, dots, underscores ignored).
   columns: {
     camp:      ["Basecamp_Name", "Basecamp name", "Base camp", "Basecamp", "Camp name", "Camp"],
