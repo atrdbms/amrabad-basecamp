@@ -43,6 +43,9 @@ search. Choose values and press **Apply**. Each list only shows values that exis
 *Compliance* = days with at least one report ÷ days in the period (the date range, else the month/year chosen,
 else first to last report date).
 
+After changing app.js, config.js or the CSS files, raise the `?v=` number on their lines in `index.html`
+so browsers load the new copy instead of an old cached one.
+
 ## Publishing (free) on GitHub Pages
 1. Upload these files to a GitHub repository.
 2. Settings → Pages → Source: *Deploy from a branch* → `main` / root → Save.
