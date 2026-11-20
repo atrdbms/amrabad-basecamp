@@ -20,6 +20,14 @@ window.BC_CONFIG = {
   reportsCsvUrl: "",         // optional override for the reports tab
   campsCsvUrl: "",           // optional override for the master tab
 
+  // Boundary layers (KML) shown to everyone. Upload the .kml files to this GitHub repository
+  // (e.g. a folder named kml) and list them here, for example:
+  //   { name: "ATR boundary", url: "kml/ATR_boundary.kml" },
+  //   { name: "Beats", url: "kml/ATR_beats.kml" },
+  // Anyone can also upload a KML/KMZ on the GIS Map page (kept in that browser only).
+  kmlLayers: [
+  ],
+
   mapCenter: [16.35, 78.85],
   mapZoom: 10,
 

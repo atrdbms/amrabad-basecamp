@@ -30,6 +30,11 @@ the site shows a warning listing any name it cannot match.
   (red ring = more than 0.5 km from the basecamp). Click for details and photos.
 - **Selecting a basecamp** (Basecamp name filter, clicking its pin, or the 🛰 Map button on its card) highlights it and draws a
   10 km radius circle around it, ringing the other basecamps inside the circle (radius set in `config.js` → `selectRadiusKm`).
+- **Boundary layers (KML)** (top-left of the GIS map): *Upload KML / KMZ* overlays reserve, division, range, beat or
+  compartment boundaries on the satellite image. Each layer can be switched on/off, zoomed to (⌖) or removed (✕);
+  click a boundary to see its name and attributes. Uploaded layers are remembered in that browser only.
+  To show boundaries to **everyone**, upload the .kml files to this repository (e.g. a `kml` folder) and list them
+  in `config.js` → `kmlLayers`, e.g. `{ name: "Beats", url: "kml/ATR_beats.kml" }`.
 - **Basecamps** – one card per basecamp with latest photo, reports, days reported, compliance and last report.
 - **Reports** – Abstract reports (basecamp-wise status, division / range / section / beat-wise abstracts,
   month-wise, employee-wise, non-reporting basecamps, photos taken away from camp, full report list),
