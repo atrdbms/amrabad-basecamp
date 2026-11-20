@@ -93,26 +93,38 @@
       });
     });
   }
-  // Fallback that works without CORS: Google Visualization JSONP.
+  // Google Visualization JSONP (works without CORS). The header row and the data rows are
+  // read as two separate ranges, so Google cannot mistake the first data row for a header
+  // or blank out values while guessing column types.
   let jsonpN = 0;
-  function loadJsonp(tab) {
+  function gviz(tab, range) {
     return new Promise((resolve, reject) => {
       const cb = "__bcLoad" + ++jsonpN, s = document.createElement("script");
       const timer = setTimeout(() => { cleanup(); reject("timeout"); }, 20000);
       const cleanup = () => { clearTimeout(timer); delete window[cb]; s.remove(); };
       window[cb] = (resp) => {
         cleanup();
-        if (!resp || resp.status === "error") return reject((resp && resp.errors && resp.errors[0] && resp.errors[0].detailed_message) || "error");
-        const cols = resp.table.cols.map((c, i) => (c.label || "").trim() || "col" + i);
-        const rows = resp.table.rows.map((r) => Object.fromEntries(cols.map((h, i) => { const c = r.c[i]; return [h, c ? (c.f ?? c.v ?? "") : ""]; })));
-        resolve({ headers: cols.filter((h) => !/^col\d+$/.test(h)), rows });
+        if (!resp || resp.status === "error") return reject((resp && resp.errors && resp.errors[0] && (resp.errors[0].detailed_message || resp.errors[0].message)) || "error");
+        resolve(resp.table.rows.map((r) => (r.c || []).map((c) => {
+          if (!c || c.v == null) return c && c.f != null ? String(c.f) : "";
+          if (typeof c.v === "number") return String(c.v);            // full precision (lat/long)
+          if (typeof c.v === "string" && /^Date\(/.test(c.v)) return c.f != null ? String(c.f) : c.v; // dates/times as shown in sheet
+          return String(c.v);
+        })));
       };
       s.onerror = () => { cleanup(); reject("network"); };
-      s.src = `https://docs.google.com/spreadsheets/d/${CFG.sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=1&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`;
+      s.src = `https://docs.google.com/spreadsheets/d/${CFG.sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=0&sheet=${encodeURIComponent(tab)}&range=${range}&_=${Date.now()}`;
       document.head.appendChild(s);
     });
   }
-  const loadTab = (tab, override) => (override ? loadCsv(override) : loadCsv(tabUrl(tab)).catch(() => loadJsonp(tab))).then(unmerge);
+  async function loadGviz(tab) {
+    const [head, body] = await Promise.all([gviz(tab, "A1:AZ1"), gviz(tab, "A2:AZ20000")]);
+    const hdr = (head[0] || []).map((h) => String(h).trim());
+    const keep = hdr.map((h, i) => [h, i]).filter(([h]) => h);
+    const rows = body.filter((r) => r.some((v) => String(v).trim() !== "")).map((r) => Object.fromEntries(keep.map(([h, i]) => [h, r[i] ?? ""])));
+    return { headers: keep.map(([h]) => h), rows };
+  }
+  const loadTab = (tab, override) => (override ? loadCsv(override) : loadGviz(tab).catch(() => loadCsv(tabUrl(tab)))).then(unmerge);
 
   // Google's sheet reader sometimes glues the first data row onto the header row
   // ("Basecamp_name Turkapally Base Camp", "Latitude 16.341422" …). Split it back into
