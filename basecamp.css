@@ -1,5 +1,5 @@
 /* Basecamp-specific additions on top of style.css */
-.camp-pin { position: relative; }
+/* (Leaflet positions the icon absolutely; do not override) */
 .camp-pin div { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #2e7d32; border: 2px solid #fff; box-shadow: 0 2px 6px #0007; display: grid; place-items: center; }
 .camp-pin.no div { background: #c62828; }
 .camp-pin span { transform: rotate(45deg); font-size: 14px; line-height: 1; }
