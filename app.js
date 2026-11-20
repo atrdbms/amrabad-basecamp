@@ -112,7 +112,26 @@
       document.head.appendChild(s);
     });
   }
-  const loadTab = (tab, override) => (override ? loadCsv(override) : loadCsv(tabUrl(tab)).catch(() => loadJsonp(tab)));
+  const loadTab = (tab, override) => (override ? loadCsv(override) : loadCsv(tabUrl(tab)).catch(() => loadJsonp(tab))).then(unmerge);
+
+  // Google's sheet reader sometimes glues the first data row onto the header row
+  // ("Basecamp_name Turkapally Base Camp", "Latitude 16.341422" …). Split it back into
+  // a header and a first row so that row is not lost.
+  function unmerge(t) {
+    const aliases = Object.values(CFG.columns).flat().concat(["Compt_No", "Location", "Picture", "Picture_url", "Time"])
+      .map((a) => a.trim()).sort((x, y) => y.length - x.length);
+    let hits = 0;
+    const split = t.headers.map((h) => {
+      const a = aliases.find((x) => h.toLowerCase().startsWith(x.toLowerCase() + " "));
+      if (a) { hits++; return [h.slice(0, a.length), h.slice(a.length + 1).trim()]; }
+      return [h, ""];
+    });
+    if (hits < Math.max(2, t.headers.length / 2)) return t;
+    const headers = split.map(([h]) => h), first = {};
+    split.forEach(([h, v]) => (first[h] = v));
+    const rows = t.rows.map((r) => Object.fromEntries(t.headers.map((old, i) => [headers[i], r[old]])));
+    return { headers, rows: [first, ...rows] };
+  }
 
   async function load() {
     setStatus("Loading data from Google Sheet…");
