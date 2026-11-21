@@ -28,6 +28,11 @@ window.BC_CONFIG = {
   kmlLayers: [
   ],
 
+  // "Add Report" form: paste the Apps Script web-app URL here after the one-time setup in
+  // README → "Add Report form". Leave "" and the form shows the setup steps instead.
+  entryApiUrl: "",
+  designations: ["Basecamp watcher", "Protection watcher", "Forest Beat Officer", "Forest Section Officer", "Forest Range Officer"],
+
   mapCenter: [16.35, 78.85],
   mapZoom: 10,
 

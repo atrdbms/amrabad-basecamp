@@ -202,7 +202,7 @@
     byKey.forEach((c) => { if (!c.hasCoord) { const r = state.reports.find((x) => x.campKey === c.key && x.hasCoord); if (r) { c.lat = r.lat; c.lon = r.lon; c.hasCoord = true; c.approx = true; } } });
     state.camps = [...byKey.values()].sort((a, b) => natural(a.division, b.division) || natural(a.range, b.range) || natural(a.camp, b.camp));
 
-    buildFilterFields(); buildPivotFields();
+    buildFilterFields(); buildPivotFields(); fillEntryCamps();
     applyFilters(true);
     const ts = new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
     setStatus(`● Live · ${state.camps.length} basecamps · ${state.reports.length} reports · synced ${ts}`);
@@ -797,11 +797,135 @@
   function printPane() { switchView("report"); document.body.dataset.print = activePane(); setTimeout(() => window.print(), 250); }
   window.addEventListener("afterprint", () => { document.body.dataset.print = ""; });
 
+
+  // ---------- Add Report form ----------
+  // Mobile: picture must come from the camera. Desktop: camera is off, choose a picture file.
+  const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  const en = { photo: null, lat: NaN, lon: NaN, acc: NaN, gpsAt: 0 };
+  function fillEntryCamps() {
+    const sel = $("#enCamp"); if (!sel) return;
+    const cur = sel.value;
+    const camps = state.camps.filter((c) => c.inMaster).sort((a, b) => natural(a.camp, b.camp));
+    const byRange = group(camps, (c) => c.range || "Other");
+    sel.innerHTML = `<option value="">Select basecamp…</option>` + [...byRange.keys()].sort(natural).map((r) =>
+      `<optgroup label="${esc(r)} Range">${byRange.get(r).map((c) => `<option value="${esc(c.key)}" ${c.key === cur ? "selected" : ""}>${esc(c.camp)}</option>`).join("")}</optgroup>`).join("");
+    const des = uniq([...(CFG.designations || []), ...state.reports.map((r) => r.designation)]);
+    $("#desigList").innerHTML = des.map((d) => `<option value="${esc(d)}">`).join("");
+    entryCampChanged();
+  }
+  const entryCamp = () => state.camps.find((c) => c.key === $("#enCamp").value);
+  function entryCampChanged() {
+    const c = entryCamp();
+    ["division", "range", "section", "beat"].forEach((k) => ($("#en" + k[0].toUpperCase() + k.slice(1)).value = c ? c[k] : ""));
+    showGps();
+  }
+  function tickEntryClock() {
+    const d = new Date();
+    $("#enDate").value = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    $("#enTime").value = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  function getGps() {
+    const info = $("#enGpsInfo");
+    if (!navigator.geolocation) { $("#enLatLon").textContent = "Location not available on this device"; info.className = "small err"; return; }
+    $("#enLatLon").textContent = "Getting location…"; info.textContent = IS_MOBILE ? "Allow location access if the phone asks. Turn on GPS for best accuracy." : ""; info.className = "small";
+    navigator.geolocation.getCurrentPosition((p) => {
+      en.lat = p.coords.latitude; en.lon = p.coords.longitude; en.acc = p.coords.accuracy; en.gpsAt = Date.now(); showGps();
+    }, (err) => {
+      en.lat = en.lon = NaN; $("#enLatLon").textContent = "Location not found";
+      info.textContent = (err.code === 1 ? "Location permission was refused. Allow location for this site in the browser settings, then press ↻." : "Could not get a GPS fix. Move to open sky and press ↻.") + (IS_MOBILE ? "" : " On a computer you can still submit without location.");
+      info.className = "small err";
+    }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+  }
+  function showGps() {
+    if (!isFinite(en.lat)) return;
+    $("#enLatLon").textContent = `${en.lat.toFixed(6)}° N, ${en.lon.toFixed(6)}° E`;
+    const c = entryCamp(), d = c ? km(en.lat, en.lon, c.lat, c.lon) : NaN;
+    const info = $("#enGpsInfo");
+    info.className = "small" + (isFinite(d) && d > ALERT_KM ? " err" : "");
+    info.textContent = `Accuracy ±${Math.round(en.acc)} m` + (isFinite(d) ? ` · ${d.toFixed(2)} km from ${c.camp}` + (d > ALERT_KM ? " (more than " + ALERT_KM + " km away)" : "") : "");
+  }
+  // Resize to max 1600 px and stamp basecamp, date/time and GPS on the picture.
+  function stampPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const sc = Math.min(1, 1600 / Math.max(img.width, img.height)), w = Math.round(img.width * sc), h = Math.round(img.height * sc);
+        const cv = Object.assign(document.createElement("canvas"), { width: w, height: h }), g = cv.getContext("2d");
+        g.drawImage(img, 0, 0, w, h);
+        const c = entryCamp(), fs = Math.max(14, Math.round(w / 45));
+        const lines = [`${c ? c.camp : ""}${c ? " · " + c.range + " Range" : ""}`, `${$("#enDate").value} ${$("#enTime").value}` + (isFinite(en.lat) ? ` · ${en.lat.toFixed(6)}, ${en.lon.toFixed(6)}` : ""), "Amrabad Tiger Reserve · Basecamp DPR"];
+        const bh = fs * 1.35 * lines.length + fs * 0.8;
+        g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(0, h - bh, w, bh);
+        g.fillStyle = "#fff"; g.font = `600 ${fs}px system-ui, sans-serif`; g.textBaseline = "top";
+        lines.forEach((t, i) => g.fillText(t, fs * 0.6, h - bh + fs * 0.4 + i * fs * 1.35, w - fs * 1.2));
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("This file is not a picture.")); };
+      img.src = url;
+    });
+  }
+  async function entryPhoto(e) {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    if (!entryCamp()) { entryMsg("Select the basecamp first, then take the picture.", true); return; }
+    try {
+      tickEntryClock();
+      en.photo = await stampPhoto(f);
+      $("#enPrev").innerHTML = `<img src="${en.photo}" alt="Picture to send">`;
+      $("#enPhotoInfo").textContent = `Ready to send (${Math.round((en.photo.length * 0.75) / 1024)} KB).`;
+      entryMsg("");
+    } catch (err) { entryMsg(err.message, true); }
+  }
+  function entryMsg(t, err) { const m = $("#enMsg"); m.textContent = t; m.className = "small" + (err ? " err" : ""); }
+  function toast(t) { const el = $("#toast"); el.textContent = "✔ " + t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 6000); }
+  async function submitEntry(ev) {
+    ev.preventDefault();
+    const c = entryCamp(), emp = $("#enEmp").value.trim(), des = $("#enDesig").value.trim(), pin = $("#enPin").value.trim();
+    if (!CFG.entryApiUrl) return entryMsg("The form is not connected to the sheet yet (see the note above).", true);
+    if (!c) return entryMsg("Select the basecamp name.", true);
+    if (!emp) return entryMsg("Enter the employee name.", true);
+    if (!des) return entryMsg("Enter the designation.", true);
+    if (IS_MOBILE && !isFinite(en.lat)) return entryMsg("Location is needed. Turn on GPS and press ↻ Get location again.", true);
+    if (!en.photo) return entryMsg(IS_MOBILE ? "Take the picture with the camera." : "Choose the picture file.", true);
+    if (!pin) return entryMsg("Enter the entry PIN.", true);
+    const values = { Basecamp_Name: c.camp, Division: c.division, Range: c.range, Section: c.section, Beat: c.beat,
+      Employee_name: emp, Designation: des, Location: $("#enLoc").value.trim(),
+      Latitude: isFinite(en.lat) ? en.lat.toFixed(6) : "", Longitude: isFinite(en.lon) ? en.lon.toFixed(6) : "" };
+    $("#enSave").disabled = true; entryMsg("Sending picture and report…");
+    try {
+      const res = await fetch(CFG.entryApiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "add", pin, values, photo: { data: en.photo.split(",")[1] } }) });
+      const out = await res.json();
+      if (!out.ok) throw new Error(out.error || "Not saved");
+      try { localStorage.setItem("atr_bc_entry", JSON.stringify({ emp, des, camp: c.key, pin })); } catch (e) { /* ignore */ }
+      en.photo = null; $("#enPrev").innerHTML = "<span>📷</span>"; $("#enPhotoInfo").textContent = ""; $("#enLoc").value = "";
+      entryMsg(""); toast(`Report #${out.id} saved for ${c.camp}.`);
+      setTimeout(load, 2500);
+    } catch (err) {
+      entryMsg("Not saved: " + err.message + ". Check the internet connection and try again.", true);
+    } finally { $("#enSave").disabled = false; }
+  }
+  function initEntry() {
+    $("#entryMode").textContent = IS_MOBILE ? "Mobile: picture from camera · location from GPS" : "Computer: camera is off – choose a picture file";
+    $("#enCamBtn").classList.toggle("off", !IS_MOBILE); $("#enCam").disabled = !IS_MOBILE;
+    $("#enCamBtn").title = IS_MOBILE ? "" : "Camera is available on the mobile version only";
+    $("#enFileBtn").hidden = IS_MOBILE; $("#enFile").disabled = IS_MOBILE;
+    $("#entrySetup").hidden = !!CFG.entryApiUrl;
+    $("#entrySetup").innerHTML = "This form is not connected to the Google Sheet yet. The sheet owner needs to do the one-time setup in README → <b>Add Report form</b> and put the web-app link in <b>config.js → entryApiUrl</b>.";
+    try { const s = JSON.parse(localStorage.getItem("atr_bc_entry") || "{}"); $("#enEmp").value = s.emp || ""; $("#enDesig").value = s.des || ""; $("#enPin").value = s.pin || ""; if (s.camp) $("#enCamp").innerHTML = `<option value="${esc(s.camp)}" selected></option>`; } catch (e) { /* ignore */ }
+    $("#enCamp").addEventListener("change", entryCampChanged);
+    $("#enCam").addEventListener("change", entryPhoto);
+    $("#enFile").addEventListener("change", entryPhoto);
+    $("#enGpsBtn").addEventListener("click", getGps);
+    $("#entryForm").addEventListener("submit", submitEntry);
+    tickEntryClock(); setInterval(tickEntryClock, 1000);
+  }
   // ---------- navigation ----------
   function switchView(v) {
     document.querySelectorAll(".menu[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
     document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === "view-" + v));
-    $("#filterBar").hidden = false;
+    $("#filterBar").hidden = v === "entry";
+    if (v === "entry" && (!isFinite(en.lat) || Date.now() - en.gpsAt > 120000)) getGps();
+    try { history.replaceState(null, "", v === "dashboard" ? location.pathname : "#" + v); } catch (e) { /* ignore */ }
     setTimeout(() => { if (map) { map.invalidateSize(); mini.invalidateSize(); } fitVisible(); Object.values(charts).forEach((c) => c.resize()); }, 60);
   }
   function locateReport(r) {
@@ -837,7 +961,7 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     applyBranding();
-    initMaps();
+    initMaps(); initEntry();
     document.querySelectorAll(".menu[data-view]").forEach((t) => t.addEventListener("click", () => switchView(t.dataset.view)));
     document.querySelectorAll("[data-goto]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); switchView(a.dataset.goto); }));
     $("#f_photo").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; setSeg(b.dataset.v); state.pPhoto = b.dataset.v; refreshOptions(); markDirty(); });
@@ -887,6 +1011,8 @@
       img.replaceWith(Object.assign(document.createElement("a"), { href: img.dataset.url, target: "_blank", rel: "noopener", textContent: "📷 Open photo", className: "photo-link" }));
     }, true);
     load();
+    const start = location.hash.slice(1);
+    if (document.getElementById("view-" + start)) switchView(start);
   });
 
   window.__BC = { state, parseDate, parseCoord, ingest };

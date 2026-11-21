@@ -42,6 +42,25 @@ the site shows a warning listing any name it cannot match.
   Print / Save as PDF on letterhead, Excel (one sheet per table) and CSV.
 - **Records** – all report rows, sortable; click a row to see it on the map.
 
+## Add Report form (field data entry)
+Menu **➕ Add Report** (direct link for staff: `https://atrdbms.github.io/amrabad-basecamp/#entry`, add it to the phone's home screen).
+- Select the **Basecamp name** → Division, Range, Section and Beat fill in automatically from the Bcampdtls tab.
+- **Date and time** are today's, filled in automatically (the sheet stores the server's India time).
+- Enter **Employee name**, **Designation** and **Location**. Name and designation are remembered on that phone.
+- **Latitude & Longitude** are taken automatically from the phone's GPS (shows accuracy and distance from the basecamp).
+- **Picture**: on a mobile the *Take picture* button opens the camera directly (no gallery upload). On a computer the
+  camera button is switched off and a picture file is chosen instead. The picture is stamped with basecamp, date, time and GPS.
+- Each report becomes a new row in **BcampsDPR** (next ID_No) and the photo is saved to the Drive folder **BcampsDPR_Images**.
+
+**One-time setup by the sheet owner (about 5 minutes):**
+1. Go to **https://script.google.com → New project**, name it *ATR Basecamp Entry Service*.
+2. Delete the empty `myFunction` and paste the whole of `apps-script/Code.gs` from this repository.
+3. Change `const ENTRY_PIN = 'change-this-pin';` to your own PIN and share it only with basecamp staff.
+4. **Deploy → New deployment** → gear icon → **Web app** → *Execute as*: **Me** · *Who has access*: **Anyone** → **Deploy**
+   → **Authorize access** → choose the Google account that owns the sheet → *Advanced → Go to … (unsafe)* → **Allow**.
+5. Copy the **Web app URL** (ends with `/exec`) and paste it into `config.js` → `entryApiUrl: "…"`, then commit `config.js`.
+If you change `Code.gs` later: Deploy → Manage deployments → ✏ → Version: New version → Deploy (the URL stays the same).
+
 ## Filters
 Year, Month, Division, Range, Section, Beat, Basecamp name, plus Date from / Date to, With / Without photo and
 search. Choose values and press **Apply**. Each list only shows values that exist for the other choices.

@@ -8,8 +8,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-<link rel="stylesheet" href="style.css?v=7">
-<link rel="stylesheet" href="basecamp.css?v=7">
+<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="basecamp.css?v=9">
 </head>
 <body>
 
@@ -34,6 +34,7 @@
   <button class="menu" data-view="camps"><i>⛺</i>Basecamps</button>
   <button class="menu" data-view="report"><i>📋</i>Reports</button>
   <button class="menu" data-view="records"><i>☰</i>Records</button>
+  <button class="menu entry-menu" data-view="entry"><i>➕</i>Add Report</button>
   <div class="menu-right">
     <span class="sync" id="status">Connecting to database…</span>
     <button class="menu sync-btn" id="refreshBtn" title="Reload data from Google Sheet">↻ Sync</button>
@@ -141,11 +142,51 @@
       <div class="card flush"><div class="table-wrap" id="recordsTable"></div></div>
     </section>
 
+    <section class="view" id="view-entry">
+      <div class="page-head"><h2>Add basecamp report</h2><div class="crumb" id="entryMode"></div></div>
+      <div id="entrySetup" class="banner" hidden></div>
+      <form class="card entry" id="entryForm" autocomplete="off" novalidate>
+        <div class="en-grid">
+          <label class="en-f wide">Basecamp name *<select id="enCamp" required><option value="">Select basecamp…</option></select></label>
+          <label class="en-f">Division<input id="enDivision" readonly tabindex="-1"></label>
+          <label class="en-f">Range<input id="enRange" readonly tabindex="-1"></label>
+          <label class="en-f">Section<input id="enSection" readonly tabindex="-1"></label>
+          <label class="en-f">Beat<input id="enBeat" readonly tabindex="-1"></label>
+          <label class="en-f">Date<input id="enDate" readonly tabindex="-1"></label>
+          <label class="en-f">Time<input id="enTime" readonly tabindex="-1"></label>
+          <label class="en-f">Employee name *<input id="enEmp" required maxlength="80" autocomplete="name"></label>
+          <label class="en-f">Designation *<input id="enDesig" required list="desigList" maxlength="60"><datalist id="desigList"></datalist></label>
+          <label class="en-f wide">Location<input id="enLoc" maxlength="120" placeholder="e.g. near check post, water hole…"></label>
+        </div>
+        <div class="en-gps" id="enGps">
+          <div><b>Latitude &amp; Longitude</b> <span class="muted small">taken automatically</span></div>
+          <div class="en-gps-row"><span id="enLatLon">Getting location…</span><button type="button" class="btn sm" id="enGpsBtn">↻ Get location again</button></div>
+          <div class="small" id="enGpsInfo"></div>
+        </div>
+        <div class="en-photo">
+          <div class="en-prev" id="enPrev"><span>📷</span></div>
+          <div class="en-ph-act">
+            <b>Picture *</b>
+            <label class="btn primary file-btn" id="enCamBtn">📷 Take picture<input type="file" id="enCam" accept="image/*" capture="environment" hidden></label>
+            <label class="btn file-btn" id="enFileBtn">🖼 Choose picture file<input type="file" id="enFile" accept="image/*" hidden></label>
+            <div class="muted small" id="enPhotoInfo"></div>
+          </div>
+        </div>
+        <div class="en-foot">
+          <label>Entry PIN *<input type="password" id="enPin" required autocomplete="current-password" inputmode="numeric"></label>
+          <span id="enMsg" class="small"></span>
+          <button type="submit" class="btn primary" id="enSave">✔ Submit report</button>
+        </div>
+      </form>
+    </section>
+
     <footer class="foot no-print">
       © <span id="yr"></span> Amrabad Tiger Reserve, Telangana Forest Department · Data source: Basecampdata Google Sheet (live)
     </footer>
   </main>
 </div>
+
+<div id="toast" class="toast" hidden></div>
 
 <div id="lightbox" class="lightbox" hidden>
   <button class="lb-close" aria-label="Close">×</button>
@@ -159,7 +200,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="config.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
