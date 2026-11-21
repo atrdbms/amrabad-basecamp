@@ -75,3 +75,11 @@ table.register td:nth-last-child(-n+2) { font-weight: 700; background: #eef4ea; 
 }
 .file-btn[hidden] { display: none !important; }
 .btn.primary.file-btn { color: #fff !important; }
+/* in-page camera */
+.cam-modal { position: fixed; inset: 0; z-index: 4000; background: #000; display: flex; flex-direction: column; }
+.cam-modal video { flex: 1; width: 100%; min-height: 0; object-fit: contain; background: #000; }
+.cam-msg { position: absolute; top: 40%; left: 0; right: 0; text-align: center; color: #fff; font-size: 16px; }
+.cam-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px calc(16px + env(safe-area-inset-bottom)); background: #000; }
+.cam-side { background: none; border: 0; color: #fff; font: inherit; font-size: 16px; min-width: 90px; min-height: 44px; }
+.cam-shoot { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: #ef8a17; box-shadow: 0 0 0 3px #0008; }
+.cam-shoot:active { transform: scale(.94); }

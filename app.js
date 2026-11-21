@@ -865,6 +865,33 @@
       img.src = url;
     });
   }
+  // Live camera inside the page (opens the camera directly; no gallery option).
+  const cam = { stream: null, facing: "environment" };
+  async function openCamera() {
+    if (!entryCamp()) { entryMsg("Select the basecamp first, then take the picture.", true); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $("#enCam").click(); return; } // very old browsers
+    $("#camModal").hidden = false; $("#camMsg").textContent = "Starting camera…";
+    try {
+      stopCamera(true);
+      cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      const v = $("#camVideo"); v.srcObject = cam.stream; await v.play();
+      $("#camMsg").textContent = "";
+    } catch (err) {
+      $("#camModal").hidden = true; stopCamera();
+      entryMsg(err && err.name === "NotAllowedError" ? "Camera permission was refused. Allow the camera for this site in the browser settings and try again." : "Could not open the camera (" + (err && err.message || err) + ").", true);
+    }
+  }
+  function stopCamera(keepOpen) {
+    if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
+    cam.stream = null; if (!keepOpen) $("#camModal").hidden = true;
+  }
+  function shoot() {
+    const v = $("#camVideo"); if (!v.videoWidth) return;
+    const cv = Object.assign(document.createElement("canvas"), { width: v.videoWidth, height: v.videoHeight });
+    cv.getContext("2d").drawImage(v, 0, 0);
+    stopCamera();
+    cv.toBlob((b) => entryPhoto({ target: { files: [b], value: "" } }), "image/jpeg", 0.92);
+  }
   async function entryPhoto(e) {
     const f = e.target.files[0]; e.target.value = ""; if (!f) return;
     if (!entryCamp()) { entryMsg("Select the basecamp first, then take the picture.", true); return; }
@@ -906,7 +933,7 @@
   }
   function initEntry() {
     $("#entryMode").textContent = IS_MOBILE ? "Mobile: picture from camera · location from GPS" : "Computer: camera is off – choose a picture file";
-    $("#enCamBtn").classList.toggle("off", !IS_MOBILE); $("#enCam").disabled = !IS_MOBILE;
+    $("#enCamBtn").classList.toggle("off", !IS_MOBILE); $("#enCamBtn").disabled = !IS_MOBILE; $("#enCam").disabled = !IS_MOBILE;
     $("#enCamBtn").title = IS_MOBILE ? "" : "Camera is available on the mobile version only";
     $("#enFileBtn").hidden = IS_MOBILE; $("#enFile").disabled = IS_MOBILE;
     $("#entrySetup").hidden = !!CFG.entryApiUrl;
@@ -914,6 +941,10 @@
     try { const s = JSON.parse(localStorage.getItem("atr_bc_entry") || "{}"); $("#enEmp").value = s.emp || ""; $("#enDesig").dataset.saved = s.des || ""; $("#enPin").value = s.pin || ""; if (s.camp) $("#enCamp").innerHTML = `<option value="${esc(s.camp)}" selected></option>`; } catch (e) { /* ignore */ }
     $("#enCamp").addEventListener("change", entryCampChanged);
     $("#enCam").addEventListener("change", entryPhoto);
+    $("#enCamBtn").addEventListener("click", () => { if (IS_MOBILE) openCamera(); });
+    $("#camShoot").addEventListener("click", shoot);
+    $("#camCancel").addEventListener("click", () => stopCamera());
+    $("#camFlip").addEventListener("click", () => { cam.facing = cam.facing === "environment" ? "user" : "environment"; openCamera(); });
     $("#enFile").addEventListener("change", entryPhoto);
     $("#enGpsBtn").addEventListener("click", getGps);
     $("#entryForm").addEventListener("submit", submitEntry);
