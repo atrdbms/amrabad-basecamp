@@ -809,8 +809,8 @@
     const byRange = group(camps, (c) => c.range || "Other");
     sel.innerHTML = `<option value="">Select basecamp…</option>` + [...byRange.keys()].sort(natural).map((r) =>
       `<optgroup label="${esc(r)} Range">${byRange.get(r).map((c) => `<option value="${esc(c.key)}" ${c.key === cur ? "selected" : ""}>${esc(c.camp)}</option>`).join("")}</optgroup>`).join("");
-    const des = uniq([...(CFG.designations || []), ...state.reports.map((r) => r.designation)]);
-    $("#desigList").innerHTML = des.map((d) => `<option value="${esc(d)}">`).join("");
+    const dsel = $("#enDesig"), dcur = dsel.value || dsel.dataset.saved || "";
+    dsel.innerHTML = `<option value="">Select…</option>` + (CFG.designations || []).map((d) => `<option ${d === dcur ? "selected" : ""}>${esc(d)}</option>`).join("");
     entryCampChanged();
   }
   const entryCamp = () => state.camps.find((c) => c.key === $("#enCamp").value);
@@ -911,7 +911,7 @@
     $("#enFileBtn").hidden = IS_MOBILE; $("#enFile").disabled = IS_MOBILE;
     $("#entrySetup").hidden = !!CFG.entryApiUrl;
     $("#entrySetup").innerHTML = "This form is not connected to the Google Sheet yet. The sheet owner needs to do the one-time setup in README → <b>Add Report form</b> and put the web-app link in <b>config.js → entryApiUrl</b>.";
-    try { const s = JSON.parse(localStorage.getItem("atr_bc_entry") || "{}"); $("#enEmp").value = s.emp || ""; $("#enDesig").value = s.des || ""; $("#enPin").value = s.pin || ""; if (s.camp) $("#enCamp").innerHTML = `<option value="${esc(s.camp)}" selected></option>`; } catch (e) { /* ignore */ }
+    try { const s = JSON.parse(localStorage.getItem("atr_bc_entry") || "{}"); $("#enEmp").value = s.emp || ""; $("#enDesig").dataset.saved = s.des || ""; $("#enPin").value = s.pin || ""; if (s.camp) $("#enCamp").innerHTML = `<option value="${esc(s.camp)}" selected></option>`; } catch (e) { /* ignore */ }
     $("#enCamp").addEventListener("change", entryCampChanged);
     $("#enCam").addEventListener("change", entryPhoto);
     $("#enFile").addEventListener("change", entryPhoto);

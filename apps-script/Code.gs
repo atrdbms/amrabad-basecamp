@@ -21,6 +21,7 @@ const SHEET_NAME = 'BcampsDPR';                  // reports tab
 const MASTER_SHEET = 'Bcampdtls';                // basecamp master list
 const PHOTO_FOLDER = 'BcampsDPR_Images';         // Drive folder for photos
 const TZ = 'Asia/Kolkata';
+const DESIGNATIONS = ['Basecamp watcher', 'Animal Tracker', 'Protection watcher'];
 
 function doGet() {
   return json_({ ok: true, message: 'ATR Basecamp entry service is running.' });
@@ -44,6 +45,7 @@ function doPost(e) {
     const camp = String(v.Basecamp_Name || '').trim();
     if (!camp) return json_({ ok: false, error: 'Basecamp name is missing.' });
     if (!String(v.Employee_name || '').trim()) return json_({ ok: false, error: 'Employee name is missing.' });
+    if (DESIGNATIONS.indexOf(String(v.Designation || '').trim()) < 0) return json_({ ok: false, error: 'Designation must be one of: ' + DESIGNATIONS.join(', ') + '.' });
     if (!req.photo || !req.photo.data) return json_({ ok: false, error: 'Photo is missing.' });
 
     // Division / Range / Section / Beat / Compt_No always come from the master list.
