@@ -800,7 +800,8 @@
 
   // ---------- Add Report form ----------
   // Mobile: picture must come from the camera. Desktop: camera is off, choose a picture file.
-  const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  // Phones/tablets, including Chrome's "Desktop site" mode (touch screen + coarse pointer).
+  const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0 && window.matchMedia && matchMedia("(pointer: coarse)").matches);
   const en = { photo: null, lat: NaN, lon: NaN, acc: NaN, gpsAt: 0 };
   function fillEntryCamps() {
     const sel = $("#enCamp"); if (!sel) return;
@@ -867,19 +868,32 @@
   }
   // Live camera inside the page (opens the camera directly; no gallery option).
   const cam = { stream: null, facing: "environment" };
+  // Message shown right under the picture buttons (where the person is looking).
+  function photoMsg(t, err) { const m = $("#enPhotoInfo"); m.textContent = t; m.className = "small" + (err ? " err" : " muted"); }
+  // If the live camera cannot start, offer the phone's own camera app instead.
+  function cameraFallback(reason) {
+    stopCamera();
+    $("#enCamAlt").hidden = false;
+    photoMsg(reason + " Press “Open phone camera” below.", true);
+  }
   async function openCamera() {
-    if (!entryCamp()) { entryMsg("Select the basecamp first, then take the picture.", true); return; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $("#enCam").click(); return; } // very old browsers
-    $("#camModal").hidden = false; $("#camMsg").textContent = "Starting camera…";
+    if (!entryCamp()) { photoMsg("Select the basecamp name at the top first, then take the picture.", true); $("#enCamp").focus(); return; }
+    if (!window.isSecureContext) return cameraFallback("The live camera needs the https:// address of the site.");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return cameraFallback("This browser cannot show the live camera.");
+    photoMsg("Opening camera…");
+    $("#camModal").hidden = false; $("#camMsg").textContent = "Starting camera… allow camera access if the phone asks.";
+    stopCamera(true);
+    const timer = setTimeout(() => { if (!$("#camVideo").videoWidth) cameraFallback("The camera did not start."); }, 10000);
     try {
-      stopCamera(true);
-      cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      try { cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }); }
+      catch (e1) { if (e1 && (e1.name === "NotAllowedError" || e1.name === "SecurityError")) throw e1; cam.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
       const v = $("#camVideo"); v.srcObject = cam.stream; await v.play();
-      $("#camMsg").textContent = "";
+      $("#camMsg").textContent = ""; photoMsg("");
     } catch (err) {
-      $("#camModal").hidden = true; stopCamera();
-      entryMsg(err && err.name === "NotAllowedError" ? "Camera permission was refused. Allow the camera for this site in the browser settings and try again." : "Could not open the camera (" + (err && err.message || err) + ").", true);
-    }
+      cameraFallback(err && (err.name === "NotAllowedError" || err.name === "SecurityError")
+        ? "Camera permission is blocked for this site (tap the lock icon next to the address → Permissions → Camera → Allow)."
+        : "The live camera could not open (" + ((err && (err.name || err.message)) || err) + ").");
+    } finally { clearTimeout(timer); }
   }
   function stopCamera(keepOpen) {
     if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
@@ -894,14 +908,14 @@
   }
   async function entryPhoto(e) {
     const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-    if (!entryCamp()) { entryMsg("Select the basecamp first, then take the picture.", true); return; }
+    if (!entryCamp()) { photoMsg("Select the basecamp name at the top first, then take the picture.", true); return; }
     try {
       tickEntryClock();
       en.photo = await stampPhoto(f);
       $("#enPrev").innerHTML = `<img src="${en.photo}" alt="Picture to send">`;
-      $("#enPhotoInfo").textContent = `Ready to send (${Math.round((en.photo.length * 0.75) / 1024)} KB).`;
+      photoMsg(`Ready to send (${Math.round((en.photo.length * 0.75) / 1024)} KB).`);
       entryMsg("");
-    } catch (err) { entryMsg(err.message, true); }
+    } catch (err) { photoMsg(err.message, true); }
   }
   function entryMsg(t, err) { const m = $("#enMsg"); m.textContent = t; m.className = "small" + (err ? " err" : ""); }
   function toast(t) { const el = $("#toast"); el.textContent = "✔ " + t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 6000); }
@@ -933,7 +947,7 @@
   }
   function initEntry() {
     $("#entryMode").textContent = IS_MOBILE ? "Mobile: picture from camera · location from GPS" : "Computer: camera is off – choose a picture file";
-    $("#enCamBtn").classList.toggle("off", !IS_MOBILE); $("#enCamBtn").disabled = !IS_MOBILE; $("#enCam").disabled = !IS_MOBILE;
+    $("#enCamBtn").classList.toggle("off", !IS_MOBILE); $("#enCam").disabled = !IS_MOBILE;
     $("#enCamBtn").title = IS_MOBILE ? "" : "Camera is available on the mobile version only";
     $("#enFileBtn").hidden = IS_MOBILE; $("#enFile").disabled = IS_MOBILE;
     $("#entrySetup").hidden = !!CFG.entryApiUrl;
@@ -941,7 +955,7 @@
     try { const s = JSON.parse(localStorage.getItem("atr_bc_entry") || "{}"); $("#enEmp").value = s.emp || ""; $("#enDesig").dataset.saved = s.des || ""; $("#enPin").value = s.pin || ""; if (s.camp) $("#enCamp").innerHTML = `<option value="${esc(s.camp)}" selected></option>`; } catch (e) { /* ignore */ }
     $("#enCamp").addEventListener("change", entryCampChanged);
     $("#enCam").addEventListener("change", entryPhoto);
-    $("#enCamBtn").addEventListener("click", () => { if (IS_MOBILE) openCamera(); });
+    $("#enCamBtn").addEventListener("click", () => { if (IS_MOBILE) openCamera(); else photoMsg("The camera works on the mobile version only. Use “Choose picture file”.", true); });
     $("#camShoot").addEventListener("click", shoot);
     $("#camCancel").addEventListener("click", () => stopCamera());
     $("#camFlip").addEventListener("click", () => { cam.facing = cam.facing === "environment" ? "user" : "environment"; openCamera(); });
