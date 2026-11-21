@@ -45,7 +45,7 @@ table.register td:nth-last-child(-n+2) { font-weight: 700; background: #eef4ea; 
 .rad-lbl span { position: absolute; transform: translate(-50%, -130%); white-space: nowrap; background: #1b2f17e6; color: #ffd400; font-weight: 700; font-size: 12px; padding: 3px 9px; border-radius: 999px; }
 .map-toggle .btn.sm { margin-top: 6px; width: 100%; }
 /* Add Report form */
-.entry-menu { margin-left: 6px; color: var(--or-d) !important; font-weight: 700; }
+.entry-menu { color: var(--or-d) !important; font-weight: 700; }
 .card.entry { padding: 16px; max-width: 900px; }
 .en-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
 .en-f { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
